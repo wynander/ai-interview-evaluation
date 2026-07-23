@@ -1,0 +1,32 @@
+[
+  {
+    "id": "demo-101532",
+    "title": "Classic Next Generation Athlete Backpack",
+    "category": "Accessories / Bags",
+    "price": 35,
+    "currency": "USD",
+    "inStock": true,
+    "imageUrl": "https://pacific-demo-data.bloomreach.cloud/apparel/images/webp/gen_gptimage_1/bags/variants/101532_0_image.webp",
+    "tags": ["training", "travel", "recycled"]
+  },
+  {
+    "id": "demo-101366",
+    "title": "4ATHLTS ID Duffel Bag Small",
+    "category": "Accessories / Bags",
+    "price": 38,
+    "currency": "USD",
+    "inStock": true,
+    "imageUrl": "https://pacific-demo-data.bloomreach.cloud/apparel/images/webp/gen_gptimage_1/bags/variants/101366_0_image.webp",
+    "tags": ["gym", "travel", "recycled"]
+  },
+  {
+    "id": "demo-101291",
+    "title": "Tour Camo-Print Hat",
+    "category": "Accessories / Headwear",
+    "price": 30,
+    "currency": "USD",
+    "inStock": true,
+    "imageUrl": "https://pacific-demo-data.bloomreach.cloud/apparel/images/webp/101291_image.webp",
+    "tags": ["golf", "summer", "seasonal"]
+  }
+]

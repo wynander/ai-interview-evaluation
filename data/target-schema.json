@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DemoReadyProduct",
+  "type": "object",
+  "required": [
+    "id",
+    "title",
+    "category",
+    "price",
+    "currency",
+    "inStock",
+    "imageUrl",
+    "tags"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "category": {
+      "type": "string",
+      "minLength": 1
+    },
+    "price": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "currency": {
+      "const": "USD"
+    },
+    "inStock": {
+      "type": "boolean"
+    },
+    "imageUrl": {
+      "type": "string",
+      "format": "uri"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    }
+  },
+  "additionalProperties": false
+}

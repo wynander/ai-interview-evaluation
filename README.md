@@ -6,9 +6,9 @@ You can use your normal development environment and the tools you are comfortabl
 
 If you use AI, translate the requirements and context in your own words when prompting. Do not point an AI tool at this README and ask it to solve the whole exercise for you.
 
-If your solution has a place where you would reasonably call an LLM or external model, it is acceptable to mock the response and explain your reasoning / approach. 
+If your solution has a place where you would reasonably call an LLM or external model, it is acceptable to mock the response and explain your reasoning / approach.
 
-Timebox: 55 minutes.
+Timebox: 55 minutes. Aim to finish a usable core slice in about 25–30 minutes so you have time for the stretch goal or a design discussion.
 
 ## Problem
 
@@ -16,7 +16,7 @@ A Solution Consultant has a demo tomorrow for a retail prospect. The prospect se
 
 The feed is not clean. Some products are missing required fields, some values use inconsistent formats, some categories do not map cleanly, and some products are technically valid but would make for a poor demo.
 
-Build the first useful version of a local workspace that helps the Solution Consultant review the feed, fix ambiguous data, approve or reject products, and export a demo-ready product feed.
+Build the first useful version of a local workspace that helps the Solution Consultant review the feed, apply obvious cleanup, fix ambiguous fields, decide what belongs in the demo, and export a demo-ready product feed.
 
 ## Starting Materials
 
@@ -25,32 +25,32 @@ This repo includes the starter artifacts you should use:
 - `data/prospect-products.csv`: messy product feed from the prospect.
 - `data/demo-brief.md`: what the Solution Consultant is trying to show.
 - `data/target-schema.json`: target shape for demo-ready products.
+
+Optional references if useful:
+
 - `data/category-map.json`: partial category mapping. It is intentionally incomplete.
 - `data/previous-demo-products.json`: a small example of products from a prior clean demo.
 
 ## Core Requirements
 
-The tool should let a Solution Consultant:
+Focus on a working slice, not a polished product. The tool should let a Solution Consultant:
 
-1. Load a product feed.
-2. See products grouped by status, such as `ready`, `needs review`, and `rejected`.
-3. Understand validation issues in plain language.
-4. Edit product fields locally.
-5. Apply obvious deterministic fixes, such as price parsing, tag splitting, and boolean normalization.
-6. Approve or reject products.
-7. Export the demo-ready product feed.
+1. Load the product feed and see each product with plain-language validation issues.
+2. Apply obvious deterministic fixes, such as price parsing, tag splitting, and boolean normalization.
+3. Edit product fields locally when a row is almost usable.
+4. Approve or reject products for the demo.
+5. Export a demo-ready product feed that matches the target schema.
 
-Build some sort of UI for the Solution Consultant. The workflow should be backed by local review state that can be saved, reopened, and used for export.
+Build a simple UI for that workflow. You may choose the stack; a small React / Next.js app, a simple Python web app, or a hybrid approach are all fine if the result is understandable and useful.
 
-You may choose the UI stack and architecture. If you're familiar with the tools, we encourage creating one of: a small React / Next.js app, a simple Python web app, or a hybrid approach. These can all be valid if the result is understandable and useful.
+Keep the original CSV read-only. Treat edits, approvals, rejections, and derived cleanup as separate local state (in memory is fine for the core slice; writing it to a file is a plus).
 
-Treat the original product feed as read-only source data. Edits, approvals, rejections, notes, and suggested fixes should live in separate local review state until the SC saves or exports generated output files.
 
 ## Stretch Goal
 
-If you have time, expose the same workflow for agents or automation outside the UI. If not, lets discuss how you would do this and what you would take into consideration. 
+If you have time, expose the same workflow for agents or automation outside the UI. If not, let's discuss how you would do this and what you would take into consideration.
 
-This could be a CLI, local API, MCP server, code-mode interface, or another structured interface. The important part is that an agent or automation should be able to inspect products, list issues, apply edits, approve or reject items, and export the final package by operating on the same local files as the UI.
+This could be a CLI, local API, MCP server, code-mode interface, or another structured interface. The important part is that an agent or automation should be able to inspect products, list issues, apply edits or fixes, approve or reject items, and export the final package by operating on the same starting file as the UI.
 
 If you know agent-oriented patterns, this is a good place to showcase them through clear primitives, structured outputs, or a discoverable interface.
 
@@ -65,7 +65,7 @@ Good work here usually includes:
 - Start with a small plan and narrate important tradeoffs as you work.
 - Use AI in short, scoped loops and inspect the code you keep.
 - Verify the most important behavior with tests or executable examples.
-- Ignore some requirements if you see a better solution - mention your justfication. There is no one right answer, and an important part of the role is knowing when to discount certain requirements. 
+- Ignore some requirements if you see a better solution — mention your justification. There is no one right answer, and an important part of the role is knowing when to discount certain requirements.
 
 ## Constraints
 
@@ -75,6 +75,5 @@ Good work here usually includes:
 - You should narrate important decisions while working.
 - You should be able to explain the code you keep.
 - The project should be runnable locally without external API keys, paid services, hosted databases, or accounts unless we provide them during the session.
-- Do not rely on a hosted database or remote service for product review state. Use local files.
+- Do not rely on a hosted database or remote service for product review state. Use local files or in-memory state.
 - You do not need authentication, deployment, background jobs, or production-grade storage unless you choose to add them for a clear reason.
-

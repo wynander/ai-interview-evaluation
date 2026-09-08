@@ -13,7 +13,7 @@ Timebox: 55 minutes. Aim to finish a usable core slice in about 25–30 minutes 
 ## Problem
 
 A Solution Consultant has a demo tomorrow for a retail prospect. The prospect sent over a product feed and asked whether it can be used for a personalized product discovery demo.
-
+ 
 The feed is not clean. Some products are missing required fields, some values use inconsistent formats, some categories do not map cleanly, and some products are technically valid but would make for a poor demo.
 
 Build the first useful version of a local workspace that helps the Solution Consultant review the feed, apply obvious cleanup, fix ambiguous fields, decide what belongs in the demo, and export a demo-ready product feed.
@@ -64,7 +64,6 @@ Good work here usually includes:
 
 - Start with a small plan and narrate important tradeoffs as you work.
 - Use AI in short, scoped loops and inspect the code you keep.
-- Verify the most important behavior with tests or executable examples.
 - Ignore some requirements if you see a better solution — mention your justification. There is no one right answer, and an important part of the role is knowing when to discount certain requirements.
 
 ## Constraints

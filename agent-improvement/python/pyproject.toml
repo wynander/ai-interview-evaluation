@@ -1,0 +1,14 @@
+[project]
+name = "support-agent-interview"
+version = "0.1.0"
+description = "A small LangChain support agent for an applied-AI engineering interview."
+requires-python = ">=3.12"
+dependencies = [
+    "langchain>=1.0.0,<2",
+    "langchain-openai>=1.0.0,<2",
+    "pydantic>=2.0.0,<3",
+    "python-dotenv>=1.0.0,<2",
+]
+
+[tool.uv]
+package = false

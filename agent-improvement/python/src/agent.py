@@ -140,8 +140,7 @@ class AgentSession:
 
         # Pre-response guardrail screen. Blocked content is REPLACED, never
         # appended — prepending would leak the violating text to the user.
-        # TODO (candidate): re-prompt the model for a clean re-answer instead
-        # of returning the bare block notice.
+        # TODO (candidate): return a helpful response instead of the bare block notice.
         allowed, screened = check_response(response)
         if not allowed:
             response = screened

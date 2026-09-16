@@ -4,21 +4,9 @@ The starter `search()` below is intentionally naive: full table scan,
 token overlap in Python, no chunking, no index, returns huge bodies.
 At ~3000+ docs it is slow and easily fooled by distractor drafts.
 
-Candidate: rebuild this. Suggested shape (you decide the details):
-
-  1. Ingestion: chunk long bodies, extract/normalize metadata
-     (status/trust/effective_from/audience), build tsvector or embeddings.
-     Put migrations in db/migrations/.
-  2. Search: filter (status=current, trust=official, audience=customer_facing
-     for user answers) THEN rank (FTS + recency, or hybrid + rerank).
-  3. Output: top-k chunks with doc_id + title + chunk span + score, small
-     enough to fit context. Never return internal docs to the model for
-     customer answers — or mark them clearly so guardrails can block them.
-  4. Citations: return doc_ids so tools.py can cite them and evals can check
-     grounding.
-
-You may add dependencies (e.g. sentence-transformers, pgvector) but the
-default Postgres FTS path should be enough to pass if done well.
+Candidate: rebuild this. What matters: official, current docs rank first;
+results are small enough to fit context; every result carries its doc_id
+so answers can cite grounding. Put migrations in db/migrations/.
 Document tradeoffs in DESIGN.md.
 """
 
@@ -43,7 +31,7 @@ class Chunk:
 
 
 def chunk_text(body: str, max_chars: int = 1200) -> list[str]:
-    """TODO (candidate): implement real chunking (paragraph/sentence-aware, overlap).
+    """TODO (candidate): split long bodies so results fit context.
 
     Starter just slices naively. Long docs will truncate mid-sentence.
     """
@@ -51,7 +39,7 @@ def chunk_text(body: str, max_chars: int = 1200) -> list[str]:
 
 
 def search(query: str, limit: int = 5) -> list[Chunk]:
-    """TODO (candidate): replace this naive scan with indexed retrieval.
+    """TODO (candidate): replace this naive scan.
 
     Current flaws (all intentional):
       - SELECTs every document and scores in Python (full scan, slow at scale).

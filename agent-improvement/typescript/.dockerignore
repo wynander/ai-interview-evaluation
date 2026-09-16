@@ -1,0 +1,6 @@
+# Intentionally incomplete — candidate TODO: fix secret leak.
+# HINT: what's missing here that lets .env into the Docker image?
+node_modules/
+.next/
+*.log
+traces/

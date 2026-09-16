@@ -28,8 +28,7 @@ from scripts.generate_distractors import generate as generate_distractors  # noq
 
 DEFAULT_DATABASE_URL = "postgresql://agent:agentdev@localhost:5432/support"
 
-# One load-test customer with many orders to make naive SELECT * + N+1 slow.
-# This is a BIG perf problem on purpose — fix with an index + LIMIT/JOIN.
+# One load-test customer with many orders to expose slow reads.
 LOAD_CUSTOMER_ID = "C999"
 LOAD_ORDER_COUNT = 15_000
 

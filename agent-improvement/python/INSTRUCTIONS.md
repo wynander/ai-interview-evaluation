@@ -1,7 +1,10 @@
-# Take-Home: Build a Trustworthy Support Agent
+# Take-Home: Build a Trustworthy Support Agent (Python track)
+
+This is the Python track. An equivalent TypeScript track lives next to it
+(`agent-improvement/typescript/`). Pick one and do it, not both.
 
 You get a working-but-naive support agent: LangChain tool-calling over
-Postgres + mock CRM/billing/incident services, ~3000 docs (30 real + generated
+Postgres + external CRM/billing/incident services, ~3000 docs (30 real + generated
 distractors), and an eval harness. Make it a product you'd trust: grounded,
 safe, and robust at scale.
 
@@ -52,7 +55,7 @@ cd agent-improvement/python
 cp .env.example .env
 # now edit .env: OPENAI_API_KEY=<the key we sent you>
 
-# 2. Start Postgres + mock APIs in Docker.
+# 2. Start Postgres + external services in Docker.
 docker compose up -d --build
 
 # 3. Install Python deps and seed the database (~3k docs, ~15k orders).
@@ -78,7 +81,7 @@ uv run python -m src.eval --cases refund --verbose
 open eval-baseline.html   # per-case answers, traces, judge scores
 ```
 
-If something breaks: `docker compose ps` / `docker compose logs mock-apis`
+If something breaks: `docker compose ps` / `docker compose logs services`
 for service health, `make seed` to reseed from scratch, `docker compose up -d --build` to rebuild after touching the Dockerfile. Evals talk to the
 compose services from your host, so keep the stack up while you work.
 
@@ -129,7 +132,7 @@ the checks themselves.
 | Seed data (`src/data.py`, `scripts/seed.py`, `scripts/generate_distractors.py`)                                                                              | **No.** Don't edit, weaken, or delete the corpus — grading runs reseed from these files.                                             |
 | Graded checks (`src/eval.py` cases/checks, `src/eval_retrieval.py` probes, static checks, budgets)                                                           | **No.** Don't edit assertions, thresholds, or case budgets.                                                                          |
 | Agent + tools (`src/agent.py`, `src/tools.py`, `src/retrieval.py`, `src/sandbox.py`, `src/guardrails.py`, `src/normalize.py`, `src/tracing.py`, `src/db.py`) | **Yes — this is the work.** Restructure freely, but keep entry points working (`src.eval`, `src.main`).                              |
-| Mock services (`mock_apis/main.py`)                                                                                                                          | **Yes** — own it. Keep the routes and `MOCK_API_URL` contract.                                                                       |
+| External services (`services/main.py`)                                                                                                                          | **Yes** — own it. Keep the routes and `SERVICES_API_URL` contract.                                                                       |
 | Schema (`db/migrations/`)                                                                                                                                    | **Yes, additively.** Add numbered migrations; don't rewrite `schema.sql` history. Grading replays your migrations onto a fresh seed. |
 | Your own evals (`evals/judge.py`, `evals/custom_cases.py`)                                                                                                   | **Yes — required.** Implement the judge, add 5+ cases for edges you found.                                                           |
 | Docker (`.dockerignore`, `Dockerfile`)                                                                                                                       | **Yes** — own it. Don't redesign compose or services.                                                                                |

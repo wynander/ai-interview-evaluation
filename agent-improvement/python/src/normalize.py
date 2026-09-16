@@ -1,6 +1,6 @@
 """Normalization helpers for messy IDs and dates.
 
-DB + mock APIs return mixed formats:
+DB + external services return mixed formats:
   IDs:  "c123" vs "C123" vs " C123 "
   Dates: "2026-08-14" vs "08/14/26" vs "Aug 14 2026" vs "11/30/25"
 

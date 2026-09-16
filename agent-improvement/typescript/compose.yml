@@ -1,0 +1,50 @@
+# Take-home sandbox. `docker compose up -d` should just work.
+# No networking trivia here on purpose — compose is packaging, not the test.
+# One intentional issue to find: the app image currently leaks secrets (see Dockerfile).
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: agent
+      POSTGRES_PASSWORD: agentdev
+      POSTGRES_DB: support
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agent -d support"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  # One Next.js app: external CRM/billing/incident APIs under /api/* plus a
+  # simple chat page at / for iterating without the CLI.
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: npm start
+    ports:
+      - "8001:8001"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://agent:agentdev@db:5432/support
+      AGENT_DATABASE_URL: postgresql://agent_readonly:readonlydev@db:5432/support
+      SERVICES_API_URL: http://localhost:8001
+      # Intentionally weak / shared secret. See app/api routes + lib/services-shared.ts.
+      SERVICES_API_KEY: dev-insecure-key
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    volumes:
+      - ./traces:/work/traces
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:8001/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))\""]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  pgdata:

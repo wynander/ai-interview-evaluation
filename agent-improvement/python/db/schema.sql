@@ -3,12 +3,11 @@
 -- them in DESIGN.md. Do not edit seed canonical rows to make evals pass.
 --
 -- Known starter flaws (fix the ones that matter for your agent):
---   1. Dates stored as TEXT in mixed formats (see seed). Normalize on read or
---      migrate to DATE/TIMESTAMPTZ.
+--   1. Dates stored as TEXT in mixed formats (see seed).
 --   2. No foreign keys, no indexes beyond PKs. search + order history are slow.
---   3. documents has one row per doc, no chunks, no tsvector, no embeddings.
---      Build your retrieval layer on top (see src/retrieval.py).
---   4. tickets has no dedup constraint. Add one + list-before-create in code.
+--   3. documents has one row per doc. Retrieval builds on this table
+--      (see src/retrieval.py).
+--   4. tickets has no duplicate protection.
 
 CREATE TABLE IF NOT EXISTS customers (
     customer_id TEXT PRIMARY KEY,
@@ -37,12 +36,11 @@ CREATE TABLE IF NOT EXISTS orders (
     -- BAD (intentional): no FK to customers.
     customer_id TEXT NOT NULL,
     item TEXT NOT NULL,
-    -- Mixed formats: mostly ISO, some US short. Normalize in tool layer.
+    -- Mixed formats: mostly ISO, some US short.
     placed_on TEXT NOT NULL,
     status TEXT NOT NULL,
     total_usd NUMERIC NOT NULL
 );
--- TODO (candidate): CREATE INDEX on orders(customer_id, placed_on) if history is slow.
 
 CREATE TABLE IF NOT EXISTS documents (
     doc_id TEXT NOT NULL,
@@ -56,11 +54,6 @@ CREATE TABLE IF NOT EXISTS documents (
     version INT NOT NULL DEFAULT 1,
     PRIMARY KEY (doc_id, version)
 );
--- TODO (candidate): add tsvector + GIN index, or a chunks table + embeddings.
--- Example (don't just paste — decide what your retrieval needs):
---   ALTER TABLE documents ADD COLUMN body_tsv tsvector
---     GENERATED ALWAYS AS (to_tsvector('english', title || ' ' || body)) STORED;
---   CREATE INDEX documents_tsv_idx ON documents USING GIN (body_tsv);
 
 CREATE TABLE IF NOT EXISTS incidents (
     incident_id TEXT PRIMARY KEY,
@@ -82,10 +75,7 @@ CREATE TABLE IF NOT EXISTS tickets (
     related_order_id TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
--- TODO (candidate): add a partial unique index to prevent open dupes, e.g.
---   CREATE UNIQUE INDEX tickets_open_dedup
---     ON tickets (customer_id, related_order_id) WHERE status = 'open';
--- Plus code-level list-before-create + confirm-before-create for UX.
+-- TODO (candidate): prevent duplicate open tickets.
 
 CREATE TABLE IF NOT EXISTS tool_audit_log (
     id SERIAL PRIMARY KEY,
@@ -98,8 +88,7 @@ CREATE TABLE IF NOT EXISTS tool_audit_log (
 -- Atomic ticket numbering (count-then-insert races under concurrency).
 CREATE SEQUENCE IF NOT EXISTS ticket_seq START 2001;
 
--- Read-only role used ONLY by the agent's run_sql tool.
--- Even if sandboxing fails, this role cannot mutate seed data.
+-- Read-only role: even if sandboxing fails, it cannot mutate seed data.
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'agent_readonly') THEN

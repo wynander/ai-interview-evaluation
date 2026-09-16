@@ -2,7 +2,7 @@
 distractors). DO NOT MODIFY — grading reseeds from this file plus a
 different distractor seed, so edits/hardcodes against it will fail there.
 
-Runtime code must query Postgres / mock APIs, never import these dicts
+Runtime code must query Postgres / external services, never import these dicts
 directly (except the seed script)."""
 
 from __future__ import annotations

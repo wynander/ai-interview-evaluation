@@ -18,7 +18,7 @@ def database_url() -> str:
 
 
 def agent_database_url() -> str:
-    """Read-only URL for the agent's run_sql tool. Never use the superuser URL there."""
+    """Connection URL for the read-only agent_readonly role."""
     return os.environ.get("AGENT_DATABASE_URL", DEFAULT_AGENT_DATABASE_URL)
 
 

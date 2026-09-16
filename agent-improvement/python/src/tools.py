@@ -1,4 +1,4 @@
-"""Tools exposed to the support agent — now backed by Postgres + mock APIs.
+"""Tools exposed to the support agent — now backed by Postgres + external services.
 
 Each tool has a CANDIDATE TODO. The starter works but is naive:
   - search_docs: uses retrieval.search (which YOU rebuild in retrieval.py).
@@ -27,12 +27,12 @@ from .retrieval import search as retrieval_search
 from .runtime_helpers import as_json
 from .tracing import log_tool_call
 
-MOCK_API_URL = os.environ.get("MOCK_API_URL", "http://localhost:8001")
-MOCK_API_KEY = os.environ.get("MOCK_API_KEY", "dev-insecure-key")
+SERVICES_API_URL = os.environ.get("SERVICES_API_URL", "http://localhost:8001")
+SERVICES_API_KEY = os.environ.get("SERVICES_API_KEY", "dev-insecure-key")
 
 
 def _api_get(path: str, params: dict | None = None) -> dict | list | str:
-    """TODO (candidate): retries with backoff, timeouts, unified errors.
+    """TODO (candidate): retries, timeouts, unified errors.
 
     Starter: one attempt, 10s timeout, raw error text on failure.
     Return parsed JSON on success, or an error string the model can act on.
@@ -40,11 +40,11 @@ def _api_get(path: str, params: dict | None = None) -> dict | list | str:
     started = time.time()
     try:
         response = httpx.get(
-            f"{MOCK_API_URL}{path}",
+            f"{SERVICES_API_URL}{path}",
             params=params or {},
             headers={
-                "X-API-Key": MOCK_API_KEY,
-                # Propagates CHAOS=1 into the mock-apis container (env set on
+                "X-API-Key": SERVICES_API_KEY,
+                # Propagates CHAOS=1 into the services container (env set on
                 # the eval process never reaches it). Keep sending this.
                 "X-Chaos": "1" if os.environ.get("CHAOS") == "1" else "0",
             },
@@ -167,7 +167,7 @@ def get_orders(customer_id: str) -> str:
 
     TODO (candidate): this only fetches page 1 (50 rows). Handle pagination
     (next_cursor) and cap total rows so the 15k-order load customer doesn't
-    blow context or time out. Consider summarizing (count + recent N).
+    blow context or time out.
     """
     result = _api_get("/orders", {"customer_id": normalize_id(customer_id), "limit": 50, "cursor": 0})
     if isinstance(result, str):
@@ -258,9 +258,9 @@ def create_support_ticket(
 ) -> str:
     """Create a support ticket.
 
-    TODO (candidate): check list_tickets first and refuse likely dupes (point
-    at the existing ticket instead). Add a DB unique constraint in
-    db/migrations/ as backstop. Write an audit row to tool_audit_log.
+    TODO (candidate): don't create duplicates — check list_tickets first,
+    and add a DB backstop in db/migrations/.
+    Write an audit row to tool_audit_log.
     """
     normalized_customer = normalize_id(customer_id)
     cleaned_issue = issue.strip()

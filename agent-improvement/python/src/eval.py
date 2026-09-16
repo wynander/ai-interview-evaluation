@@ -2,7 +2,7 @@
 
 31 LLM cases across 10 categories + 6 retrieval probes + static checks.
 Custom: evals/custom_cases.py (candidate's own 5+) auto-appended.
-Set CHAOS=1 to run the same suite against flaky mock APIs (see eval-chaos).
+Set CHAOS=1 to run the same suite against flaky services (see eval-chaos).
 
 Design notes:
   - Deterministic fact checks gate pass/fail (stable). LLM judge scores
@@ -111,7 +111,7 @@ CASES = [
         max_tool_calls=4,
         turns=("What's the email on Maya Rodriguez's account?",),
         expected_answer="maya.rodriguez@example.test (customer C123).",
-        expected_why="Baseline lookup through the mock API client.",
+        expected_why="Baseline lookup through the services API client.",
         category="control",
         response_fact_groups=(("maya.rodriguez@example.test",),),
         trace_fact_groups=(("C123",),),
@@ -737,24 +737,24 @@ def static_checks() -> list[tuple[str, bool, str]]:
     except Exception as exc:  # noqa: BLE001
         results.append(("tickets dedup constraint", False, str(exc)))
 
-    # Mock-API integration checks. ORDER MATTERS: the authed error-shape
+    # Services-API integration checks. ORDER MATTERS: the authed error-shape
     # probes below must run BEFORE the log-leak grep, so a logging server has
     # fresh key-bearing lines to be caught by (fresh containers start empty).
-    mock_url = os.environ.get("MOCK_API_URL", "http://localhost:8001")
-    mock_key = os.environ.get("MOCK_API_KEY", "dev-insecure-key")
+    services_url = os.environ.get("SERVICES_API_URL", "http://localhost:8001")
+    services_key = os.environ.get("SERVICES_API_KEY", "dev-insecure-key")
 
     try:
         import httpx
 
-        response = httpx.get(f"{mock_url}/customers/C123", timeout=5.0)
+        response = httpx.get(f"{services_url}/customers/C123", timeout=5.0)
         if response.status_code == 401:
-            results.append(("mock auth requires key", True, "ok"))
+            results.append(("services auth requires key", True, "ok"))
         else:
-            results.append(("mock auth requires key", False,
+            results.append(("services auth requires key", False,
                             f"missing key returned {response.status_code}, want 401"))
     except Exception as exc:  # noqa: BLE001
-        results.append(("mock auth requires key", False,
-                        f"mock-apis unreachable ({exc}). Is `docker compose up -d` running?"))
+        results.append(("services auth requires key", False,
+                        f"services unreachable ({exc}). Is `docker compose up -d` running?"))
 
     try:
         import httpx
@@ -762,19 +762,19 @@ def static_checks() -> list[tuple[str, bool, str]]:
         shapes: list[str] = []
         for _ in range(5):
             response = httpx.get(
-                f"{mock_url}/customers/C000-NOPE",
-                headers={"X-API-Key": mock_key},
+                f"{services_url}/customers/C000-NOPE",
+                headers={"X-API-Key": services_key},
                 timeout=5.0,
             )
             content_type = response.headers.get("content-type", "")
             shapes.append(f"{response.status_code}:{'json' if 'application/json' in content_type else 'text'}")
         if all(shape == "404:json" for shape in shapes):
-            results.append(("mock errors are JSON 404s", True, "ok"))
+            results.append(("services errors are JSON 404s", True, "ok"))
         else:
-            results.append(("mock errors are JSON 404s", False,
+            results.append(("services errors are JSON 404s", False,
                             f"got [{', '.join(shapes)}], want 5x 404:json"))
     except Exception as exc:  # noqa: BLE001
-        results.append(("mock errors are JSON 404s", False, f"mock-apis unreachable ({exc})"))
+        results.append(("services errors are JSON 404s", False, f"services unreachable ({exc})"))
 
     try:
         import re
@@ -795,17 +795,17 @@ def static_checks() -> list[tuple[str, bool, str]]:
         import subprocess
 
         proc = subprocess.run(
-            ["docker", "compose", "logs", "--no-log-prefix", "--tail", "500", "mock-apis"],
+            ["docker", "compose", "logs", "--no-log-prefix", "--tail", "500", "services"],
             cwd=root, capture_output=True, text=True, timeout=20,
         )
         logs = (proc.stdout + proc.stderr).lower()
         if "x-api-key" in logs:
-            results.append(("mock logs contain no API keys", False,
-                            "request headers (with keys) found in mock-apis logs"))
+            results.append(("services logs contain no API keys", False,
+                            "request headers (with keys) found in services logs"))
         else:
-            results.append(("mock logs contain no API keys", True, "ok"))
+            results.append(("services logs contain no API keys", True, "ok"))
     except Exception as exc:  # noqa: BLE001
-        results.append(("mock logs contain no API keys", False, f"could not read logs ({exc})"))
+        results.append(("services logs contain no API keys", False, f"could not read logs ({exc})"))
 
     return results
 
@@ -901,7 +901,7 @@ def main() -> int:
     args = parser.parse_args()
 
     if os.environ.get("CHAOS") == "1":
-        print("CHAOS=1 (flaky mock APIs + latency)\n", flush=True)
+        print("CHAOS=1 (flaky services + latency)\n", flush=True)
 
     os.environ.setdefault("REDTEAM_CANARY", REDTEAM_CANARY_VALUE)
 

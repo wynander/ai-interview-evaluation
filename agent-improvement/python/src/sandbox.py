@@ -1,35 +1,11 @@
 """Sandboxed code/SQL execution for the agent — 0-1 BUILD.
 
-The agent needs `run_python` (date math, deadline computation) and `run_sql`
-(read-only lookups the typed tools don't cover). The starter has baseline
-guards with real holes left for you:
+The starter guards are weak by design. Red-team evals will try to break
+out of both tools: harden them without breaking legit use, and add your
+own attack cases in evals/custom_cases.py.
 
-  run_python: timeout + import allowlist + restricted builtins are in place;
-    missing AST-level checks against obfuscation (getattr, split strings,
-    dunder access) and resource limits.
-  run_sql: parse gate (SELECT/WITH/EXPLAIN only) + timeouts + row caps are in
-    place; still connects as SUPERUSER instead of the read-only role.
-
-Candidate TODO — close the holes without breaking legit use:
-
-  run_python:
-    - Timeout (~2s) + block imports except {datetime, math, re, json}.
-    - No file/network/builtin access (no open, exec, eval, __import__...).
-    - Return value or stdout, truncated. Log to tool_audit_log.
-
-  run_sql:
-    - Use agent_database_url() (read-only role) — NEVER the superuser URL.
-    - Parse-first: allow SELECT/WITH/EXPLAIN only; reject DROP/DELETE/UPDATE/
-      INSERT/COPY/ALTER via sqlparse or a strict prefix check + deny-list.
-    - Support dry_run=True: return EXPLAIN plan + estimated rows WITHOUT
-      executing. Evals use this for red-team safety (plan is tested, DB is
-      never touched by hostile statements).
-    - Enforce LIMIT (default 50, max 200) + statement_timeout=5s.
-    - Log every call to tool_audit_log.
-
-Evals NEVER execute hostile SQL against your DB: red-team cases check that
-dangerous statements are REJECTED at parse/plan stage and that row counts
-are unchanged. See src/eval.py red-team section.
+Red-team evals never execute hostile statements against your DB: they
+check rejection at parse/plan stage plus unchanged row counts.
 """
 
 from __future__ import annotations
@@ -52,8 +28,7 @@ BLOCKED_PATTERNS = [
 ]
 
 # Restricted builtins: enough for date/math/string work, no I/O or introspection.
-# Candidate TODO: add an AST precheck (reject dunder attribute access, getattr/
-# globals()/locals() tricks) + CPU/memory limits, and add your own abuse tests.
+# TODO: harden this further and add your own abuse tests.
 import builtins as _builtins_module
 
 _SAFE_BUILTIN_NAMES = {
@@ -83,12 +58,7 @@ DENY_STATEMENTS = re.compile(
 
 
 def _exec_worker(code: str, queue: mp.Queue) -> None:
-    """Worker for timeout support. Single namespace + restricted builtins.
-
-    NOTE: exec() with SEPARATE globals/locals dicts breaks `def` bodies and
-    comprehensions (they resolve via globals). A single namespace dict is the
-    correct sandbox pattern — see DESIGN.md expectations.
-    """
+    """Worker for timeout support. Single namespace + restricted builtins."""
     buf = io.StringIO()
     try:
         namespace: dict = {"__builtins__": SAFE_BUILTINS}
@@ -110,8 +80,7 @@ def run_python(code: str) -> str:
     """Run a small Python snippet for calculations (date math, deadlines).
 
     Sandboxed: 2s timeout, allowlisted imports (datetime/math/re/json), no
-    FS/network/introspection. TODO (candidate): AST-level abuse checks,
-    resource limits, and your own red-team tests in evals/custom_cases.py.
+    I/O. Set `result = ...` or print().
     """
     for pattern in BLOCKED_PATTERNS:
         if re.search(pattern, code):
@@ -154,16 +123,11 @@ def _is_readonly_query(query: str) -> tuple[bool, str]:
 
 @tool("run_sql", args_schema=RunSqlInput)
 def run_sql(query: str, dry_run: bool = False) -> str:
-    """Run a READ-ONLY SQL lookup (SELECT/WITH) or EXPLAIN plan.
-
-    TODO (candidate): enforce read-only role + LIMIT + statement timeout.
-    Starter flaw: uses the SUPERUSER url — switch to agent_database_url().
-    """
+    """Run a READ-ONLY SQL lookup (SELECT/WITH) or EXPLAIN plan."""
     ok, reason = _is_readonly_query(query)
     if not ok:
         return f"Blocked: {reason}."
 
-    # BAD (intentional): superuser URL. Candidate MUST switch to agent_database_url().
     url = db.database_url()
     try:
         with psycopg.connect(url, autocommit=True) as conn, conn.cursor(row_factory=psycopg.rows.dict_row) as cur:

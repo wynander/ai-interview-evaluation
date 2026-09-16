@@ -3,13 +3,9 @@
 from __future__ import annotations
 
 import json
-from contextvars import ContextVar
-from copy import deepcopy
 from typing import Any
 
 from langchain_core.messages import AIMessage, ToolMessage
-
-from .data import INITIAL_TICKETS
 
 
 def normalize_identifier(value: str) -> str:
@@ -17,7 +13,8 @@ def normalize_identifier(value: str) -> str:
 
 
 def as_json(value: object) -> str:
-    return json.dumps(value, indent=2, sort_keys=True)
+    # default=str keeps DB types (Decimal, dates) from crashing serialization.
+    return json.dumps(value, indent=2, sort_keys=True, default=str)
 
 
 def content_as_text(content: Any) -> str:
@@ -71,45 +68,34 @@ def records_from_messages(messages: list[Any]) -> list[Any]:
     return records
 
 
-_ticket_state: ContextVar[list[dict[str, Any]] | None] = ContextVar(
-    "ticket_state",
-    default=None,
-)
-_ticket_counter: ContextVar[int | None] = ContextVar(
-    "ticket_counter",
-    default=None,
-)
-
-
-def get_support_tickets() -> list[dict[str, Any]]:
-    """Return the current context's process-local ticket list."""
-
-    tickets = _ticket_state.get()
-    if tickets is None:
-        tickets = deepcopy(INITIAL_TICKETS)
-        _ticket_state.set(tickets)
-    return tickets
-
+# --- Ticket helpers are now DB-backed (v2). ---
 
 def ticket_count() -> int:
-    """Return the number of tickets in the current context."""
+    """Return the number of tickets in Postgres."""
+    from . import db
 
-    return len(get_support_tickets())
+    row = db.fetch_one("SELECT count(*) AS n FROM tickets")
+    return int(row["n"]) if row else 0
 
 
 def reset_tickets() -> None:
-    """Restore the initial process-local ticket state."""
+    """Restore seed ticket state: keep T-1001, drop everything created by evals."""
+    from . import db
 
-    _ticket_state.set(deepcopy(INITIAL_TICKETS))
-    _ticket_counter.set(1002)
+    db.execute("DELETE FROM tickets WHERE ticket_id <> 'T-1001'")
+    db.execute(
+        "INSERT INTO tickets (ticket_id, customer_id, issue, priority, status, related_order_id)"
+        " VALUES ('T-1001','C789','Please confirm the delivery window for the data migration package.','normal','open','O-3018')"
+        " ON CONFLICT (ticket_id) DO NOTHING"
+    )
 
 
-def next_ticket_id() -> str:
-    """Return a new ticket ID and advance the process-local counter."""
+def table_counts() -> dict[str, int]:
+    """Row counts for all seed tables — used by eval DB-invariant checks."""
+    from . import db
 
-    next_number = _ticket_counter.get()
-    if next_number is None:
-        next_number = 1002
-    ticket_id = f"T-{next_number}"
-    _ticket_counter.set(next_number + 1)
-    return ticket_id
+    out: dict[str, int] = {}
+    for table in ("customers", "subscriptions", "orders", "documents", "incidents", "tickets"):
+        row = db.fetch_one(f"SELECT count(*) AS n FROM {table}")
+        out[table] = int(row["n"]) if row else 0
+    return out

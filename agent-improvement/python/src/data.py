@@ -1,4 +1,9 @@
-"""Small synthetic data set used by the support agent. DO NOT MODIFY THIS FILE. IT IS SUPPOSED TO REPRESENT REAL WORLD DATA."""
+"""Canonical seed data. Loaded into Postgres by scripts/seed.py (plus generated
+distractors). DO NOT MODIFY — grading reseeds from this file plus a
+different distractor seed, so edits/hardcodes against it will fail there.
+
+Runtime code must query Postgres / mock APIs, never import these dicts
+directly (except the seed script)."""
 
 from __future__ import annotations
 

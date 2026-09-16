@@ -1,75 +1,178 @@
-# Applied AI Interview: Agent Improvement
+# Take-Home: Build a Trustworthy Support Agent
 
-You receive a small fictional customer-support agent with local synthetic data, tools, and an
-evaluation harness. Inspect it, run it, find where it breaks, and improve it.
-Cursor, Claude Code, Codex, and other AI coding tools are explicitly allowed.
+You get a working-but-naive support agent: LangChain tool-calling over
+Postgres + mock CRM/billing/incident services, ~3000 docs (30 real + generated
+distractors), and an eval harness. Make it a product you'd trust: grounded,
+safe, and robust at scale.
 
-The agent uses LangChain tool-calling. The interactive CLI and programmatic
-`AgentSession` share the same implementation. The eval harness runs 18
-scenarios concurrently and checks responses, tool traces, and ticket state.
+AI coding tools are explicitly allowed and expected. Hardcoding eval answers,
+deleting distractor rows, or weakening eval checks is disqualifying — the
+chaos suite reseeds with different data.
 
 ## What we assess
 
-We care about **judgment across the AI stack**, not just prompt tweaks —
-retrieval, tool design, agent loop behavior, state handling, and identity /
-ambiguity. The starter agent is intentionally weak (~40% on the baseline
-eval). A perfect score is not expected in 30 minutes.
+**Competent builder of AI products.** Not prompt trivia — judgment across the
+AI stack: retrieval design, tool contracts, sandboxing, guardrails, evals, and
+knowing what to leave unbuilt. We read your code, your evals, your
+transcripts, and DESIGN.md.
 
-## Model access
+The starter already passes most LLM cases. That is intentional — those are
+regression floors, not the goal. Keep building until `make eval-dev` and
+`make eval-chaos` are both green.
 
-The interviewer provides a short-lived Vercel AI Gateway API key. Put it in
-`agent-improvement/python/.env` as `OPENAI_API_KEY`. The gateway URL and model
-are hardcoded in `src/agent.py`; do not add other model configuration.
+## Setup (do this first)
 
-## Interview flow
+You need Docker + Compose and `uv`. Our recommendation:
 
-| Approx. time | Activity |
-| --- | --- |
-| ~5 min | Read this README, skim the code, open `eval-baseline.html` |
-| ~30 min | Improve the agent (any layer except `src/data.py`) |
-| ~10 min | Discuss what you changed and what you would do next |
+- **macOS**: [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+(install, open it once, wait for the whale icon to stop animating).
+Lightweight alternative: `brew install colima docker docker-compose && colima start`.
+- **Linux**: Docker Engine + Compose plugin via your distro packages.
+- `**uv**`: `curl -LsSf astral.sh/uv/install.sh | sh` (or `brew install uv`).
 
-## Start here
+Verify before continuing:
+
+```bash
+docker compose version   # want Compose v2+
+docker run --rm hello-world
+uv --version
+```
+
+No Docker trivia in this exercise — if `docker compose up` works, you're
+done with infra. Everything else runs through the Makefile.
+
+Then, from the repo root:
 
 ```bash
 cd agent-improvement/python
-uv sync
+
+# 1. Env file + API key. We sent you a gateway key with this exercise —
+#    paste it into .env as OPENAI_API_KEY. (Model and gateway URL are
+#    already wired in src/agent.py; do not change them.)
 cp .env.example .env
-# Add the provided OPENAI_API_KEY to .env
+# now edit .env: OPENAI_API_KEY=<the key we sent you>
+
+# 2. Start Postgres + mock APIs in Docker.
+docker compose up -d --build
+
+# 3. Install Python deps and seed the database (~3k docs, ~15k orders).
+uv sync
+make seed
+
+# 4. Track your work in git from the start — we review history.
+git init && git add -A && git commit -m "starter"
+# then commit as you go
 ```
 
-**Review the baseline before running eval:**
-
-Open `agent-improvement/python/eval-baseline.html` in a browser. Each case
-shows the expected answer, why the case exists, failure reasons, and full tool
-traces.
-
-**Try the agent interactively:**
+Sanity-check that everything works (no LLM calls, ~10 seconds):
 
 ```bash
-uv run python -m src.main
+uv run python -m src.eval_retrieval   # deterministic ranking probes
+uv run python -m src.eval --static-only
 ```
 
-**Re-run eval after changes:**
+Then run a single LLM case end to end:
 
 ```bash
-uv run python -m src.eval
-uv run python -m src.eval --verbose   # print traces to the terminal
+uv run python -m src.eval --cases refund --verbose
+open eval-baseline.html   # per-case answers, traces, judge scores
 ```
 
-Each eval run overwrites `eval-baseline.html`. Cases run concurrently with a
-2-minute timeout per case.
+If something breaks: `docker compose ps` / `docker compose logs mock-apis`
+for service health, `make seed` to reseed from scratch, `docker compose up -d --build` to rebuild after touching the Dockerfile. Evals talk to the
+compose services from your host, so keep the stack up while you work.
+
+## The builds
+
+### 1. Retrieval that works at scale (biggest)
+
+Search must return the right official docs, with citations, at full corpus size.
+Each case has a tool-call budget (4–10 depending on the expected path) — past
+that the case fails fast. Deterministic probes (`uv run python -m src.eval_retrieval`) measure ranking directly.
+
+### 2. Tools that handle messy services
+
+The agent must stay correct when services are flaky, paginated, or
+inconsistent — and keep every tool output canonical.
+
+### 3. Sandboxed execution
+
+`run_python` and `run_sql` must be safe to expose to the model without
+breaking legitimate use. Red-team evals verify hostile statements never
+execute and stored data never changes.
+
+### 4. Guardrails
+
+Tool output is untrusted data. The agent must not follow injected
+instructions, must not leak internal-only material, and must handle
+side effects responsibly.
+
+### 5. Evals + own edge cases
+
+Implement the judge, add 5+ cases for edges you found, and keep traces with
+tool calls, latency, and cost. No secrets in traces.
+
+### 6. Hygiene (small, do not skip)
+
+The static checks define this track — make them pass.
 
 ## What you may change
 
-| OK to edit | Leave alone |
-| --- | --- |
-| `src/agent.py` — system prompt, model wiring, loop behavior | `src/data.py` — synthetic corpus and records |
-| `src/tools.py` — tool schemas, retrieval, normalization | |
-| `src/runtime_helpers.py` — shared runtime utilities | |
-| `src/eval.py` — only if you want to add cases while developing | |
+Goal: make the evals, static checks, and probes pass by improving the system.
+Read the checks to understand grading — then fix the code they exercise, not
+the checks themselves.
 
-Do not delete untrusted or archived documentation rows from `data.py`. Fixes
-should handle bad retrieval in the agent layer.
 
-See `python/README.md` for project layout and tool inventory.
+| Area                                                                                                                                                         | Rule                                                                                                                                 |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Model + gateway (`OPENAI_MODEL`, `OPENAI_BASE_URL`, `temperature` in `src/agent.py`)                                                                         | **No.** Same model for everyone.                                                                                                     |
+| Seed data (`src/data.py`, `scripts/seed.py`, `scripts/generate_distractors.py`)                                                                              | **No.** Don't edit, weaken, or delete the corpus — grading runs reseed from these files.                                             |
+| Graded checks (`src/eval.py` cases/checks, `src/eval_retrieval.py` probes, static checks, budgets)                                                           | **No.** Don't edit assertions, thresholds, or case budgets.                                                                          |
+| Agent + tools (`src/agent.py`, `src/tools.py`, `src/retrieval.py`, `src/sandbox.py`, `src/guardrails.py`, `src/normalize.py`, `src/tracing.py`, `src/db.py`) | **Yes — this is the work.** Restructure freely, but keep entry points working (`src.eval`, `src.main`).                              |
+| Mock services (`mock_apis/main.py`)                                                                                                                          | **Yes** — own it. Keep the routes and `MOCK_API_URL` contract.                                                                       |
+| Schema (`db/migrations/`)                                                                                                                                    | **Yes, additively.** Add numbered migrations; don't rewrite `schema.sql` history. Grading replays your migrations onto a fresh seed. |
+| Your own evals (`evals/judge.py`, `evals/custom_cases.py`)                                                                                                   | **Yes — required.** Implement the judge, add 5+ cases for edges you found.                                                           |
+| Docker (`.dockerignore`, `Dockerfile`)                                                                                                                       | **Yes** — own it. Don't redesign compose or services.                                                                                |
+| Dependencies (`pyproject.toml`)                                                                                                                              | **Yes** — add what you need via `uv`.                                                                                                |
+| `DESIGN.md`, `traces/`                                                                                                                                       | **Yes.** Keep secrets out of both.                                                                                                   |
+
+
+Anti-gaming (disqualifying): hardcoded answers keyed to eval questions,
+special-casing eval entities, deleting or weakening seed rows or checks,
+raising temperature to chase luck.
+
+Reproducibility: grading unzips your submission and runs `docker compose up -d --build && make seed && make eval-dev && make eval-chaos`.
+If it doesn't pass there, it doesn't pass.
+
+## Scope discipline
+
+- Don't redesign compose/networking, add streaming APIs, sagas, or queues.
+Docker is packaging, not the test.
+- Don't micro-profile. Fix the big, obvious perf problems and move on.
+
+## Submission Steps
+
+1. `DESIGN.md` (template in repo): a brief overview of what you changed,
+  key decisions and tradeoffs, and what still fails.
+2. `eval-baseline.html` from your final runs — attach one from `make eval-dev`
+  and one from `make eval-chaos` (rename the files so both are included).
+3. Your AI session transcripts, in a `transcripts/` folder in this repo. How you work
+  with AI tools is part of what we're assessing — export every session you used on this exercise, raw and unedited (JSONL is fine).
+  - **Cursor**: right-click each chat tab → *Export Transcript* (saves `.md`).
+  One file per session you used.
+  - **Claude Code**: run `/export transcripts/<name>.txt` in each session,
+  or copy the raw session files from
+  `~/.claude/projects/<encoded-path>/<session-id>.jsonl`.
+  - **Codex CLI**: copy the rollout files for your sessions from
+  `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl` (match by date).
+  - **Anything else** (Copilot, ChatGPT/Claude web, Aider, …): use whatever
+  export/share-your-workflow your tool offers; raw logs or share links
+  are both fine. When in doubt, over-include.
+4. Your code as a zip of the repo root, including all of the above **plus
+  the `.git` directory** Exclude secrets and junk:
+  ```bash
+  # from the repo root
+  zip -r submission.zip . -x '.venv/*' '__pycache__/*' '*.pyc' '.env' 'traces/*'
+  ```
+  Do not open a branch or PR anywhere public. The zip (with `.git` inside) is the entire submission.
+

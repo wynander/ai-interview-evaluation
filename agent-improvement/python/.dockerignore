@@ -1,0 +1,7 @@
+# Intentionally incomplete — candidate TODO: fix secret leak.
+# HINT: what's missing here that lets .env into the Docker image?
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+traces/

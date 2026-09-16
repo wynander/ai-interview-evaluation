@@ -1,0 +1,65 @@
+# Take-home sandbox. `docker compose up -d` should just work.
+# No networking trivia here on purpose — compose is packaging, not the test.
+# One intentional issue to find: the app image currently leaks secrets (see Dockerfile).
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: agent
+      POSTGRES_PASSWORD: agentdev
+      POSTGRES_DB: support
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agent -d support"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  mock-apis:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: uvicorn mock_apis.main:app --host 0.0.0.0 --port 8001
+    ports:
+      - "8001:8001"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://agent:agentdev@db:5432/support
+      # Intentionally weak / shared secret. Candidate TODO: require per-request
+      # auth and stop accepting the default. See mock_apis/main.py.
+      MOCK_API_KEY: dev-insecure-key
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8001/health').read()\""]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+      mock-apis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://agent:agentdev@db:5432/support
+      # Read-only URL used ONLY by the agent's run_sql tool. Same DB, weaker role.
+      # Seeded by db/schema.sql. Candidate must use this (never the superuser URL).
+      AGENT_DATABASE_URL: postgresql://agent_readonly:readonlydev@db:5432/support
+      MOCK_API_URL: http://mock-apis:8001
+      MOCK_API_KEY: dev-insecure-key
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    volumes:
+      - ./traces:/work/traces
+    command: python -m src.main
+
+volumes:
+  pgdata:
